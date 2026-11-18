@@ -1,0 +1,575 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+</head>
+<body>
+<title>Passport Photo Coach</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+[hidden]{display:none!important}
+/* Layout: one narrow column, camera first, checklist under it, result card last. */
+:root{
+  --bg:#f3f5f6; --surface:#ffffff; --ink:#14212b; --muted:#5a6873; --line:#d8dee2;
+  --accent:#0f5e75; --accent-ink:#ffffff; --ok:#1d7a46; --warn:#a86400; --bad:#b3261e;
+  --ok-bg:#e3f3e9; --warn-bg:#fbf0dc; --bad-bg:#fbe5e3;
+  --display:"Space Grotesk",ui-sans-serif,system-ui,sans-serif;
+  --body:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f171d; --surface:#17232b; --ink:#e7edf0; --muted:#9aa8b2; --line:#2a3943;
+  --accent:#5fb4cc; --accent-ink:#0b1418; --ok:#5cc98a; --warn:#e6a94a; --bad:#f08077;
+  --ok-bg:#16301f; --warn-bg:#33270f; --bad-bg:#3a1a18; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f171d; --surface:#17232b; --ink:#e7edf0; --muted:#9aa8b2; --line:#2a3943;
+  --accent:#5fb4cc; --accent-ink:#0b1418; --ok:#5cc98a; --warn:#e6a94a; --bad:#f08077;
+  --ok-bg:#16301f; --warn-bg:#33270f; --bad-bg:#3a1a18; color-scheme:dark}
+html,body{background:var(--bg);color:var(--ink)}
+body{font-family:var(--body);font-size:15px;line-height:1.5;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 40px}
+.wrap{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+h1{font-family:var(--display);font-size:26px;line-height:1.15;margin:0;text-wrap:balance}
+h2{font-family:var(--display);font-size:18px;margin:0}
+.sub{color:var(--muted);margin:4px 0 0}
+.tabs{display:flex;gap:8px;flex-wrap:wrap}
+button,.filebtn{font:600 15px var(--body);border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:10px 14px;cursor:pointer}
+button.primary,.filebtn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+button[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+button:focus-visible,.filebtn:focus-within{outline:3px solid var(--accent);outline-offset:2px}
+button:disabled{opacity:.5;cursor:default}
+.status{font-size:13px;color:var(--muted)}
+.stage{position:relative;width:100%;max-width:100%;aspect-ratio:3/4;background:#000;border-radius:14px;overflow:hidden}
+.stage video,.stage canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.say{font-family:var(--display);font-size:22px;font-weight:700;min-height:1.4em;text-wrap:balance}
+.say.ok{color:var(--ok)} .say.bad{color:var(--bad)}
+.checks{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:6px}
+@media (max-width:420px){.checks{grid-template-columns:1fr}}
+.checks li{display:flex;gap:8px;align-items:flex-start;padding:7px 10px;border-radius:8px;background:var(--surface);border:1px solid var(--line);font-size:13px;min-width:0}
+.checks li .dot{flex:none;width:10px;height:10px;border-radius:50%;margin-top:5px;background:var(--line)}
+.checks li.ok .dot{background:var(--ok)} .checks li.bad .dot{background:var(--bad)} .checks li.warn .dot{background:var(--warn)}
+.checks li .t{font-weight:600} .checks li .m{color:var(--muted)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.result img{width:100%;max-width:300px;border:1px solid var(--line);border-radius:4px;align-self:center}
+.spec{font-variant-numeric:tabular-nums;font-size:13px;color:var(--muted)}
+.note{font-size:13px;color:var(--muted)}
+.banner{padding:10px 12px;border-radius:10px;font-size:14px}
+.banner.bad{background:var(--bad-bg);color:var(--bad)} .banner.warn{background:var(--warn-bg);color:var(--warn)} .banner.ok{background:var(--ok-bg);color:var(--ok)}
+details summary{cursor:pointer;font-weight:600}
+.plainfile{font:600 15px var(--body);color:var(--ink);max-width:100%;padding:10px;border:2px dashed var(--accent);border-radius:10px;background:var(--surface)}
+label.switch{display:flex;gap:6px;align-items:center;font-size:14px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Passport Photo Coach</h1>
+    <p class="sub">Checks a New Zealand passport photo against the Department of Internal Affairs rules, then crops it to the exact file DIA asks for. Private test version. Not a government service.</p>
+  </header>
+
+  <p class="note" style="margin:0">Live guide: tap Start camera and allow camera access. Photos never leave this phone.</p>
+  <div class="tabs" role="group" aria-label="Mode">
+    <button id="tabLive" aria-pressed="true">Live guide</button>
+    <button id="tabPhoto" aria-pressed="false">Check a photo</button>
+  </div>
+  <div id="loadStatus" class="status">Loading the face checker…</div>
+
+  <section id="live" class="card">
+    <div class="row">
+      <button id="startCam" class="primary">Start camera</button>
+      <button id="flipCam" disabled>Switch camera</button>
+      <label class="switch"><input type="checkbox" id="voiceOn" checked> Speak instructions</label>
+    </div>
+    <div id="camBanner" class="banner warn" hidden></div>
+    <div class="stage" id="stage" hidden>
+      <video id="video" playsinline muted></video>
+      <canvas id="overlay"></canvas>
+    </div>
+    <div id="say" class="say" aria-live="polite">Someone else holds the phone at the person's eye level. First the person stands against the wall so the app can measure the half-metre gap.</div>
+    <div class="row"><button id="snapNow" disabled>Take it now</button><span class="note">It takes the photo by itself when every check is green.</span></div>
+  </section>
+
+  <section id="photo" class="card" hidden>
+    <p class="note" style="margin:0">Take the photo with the phone's normal camera (best quality), or pick one you already have.</p>
+    <div class="row">
+      <input id="file" class="plainfile" type="file" accept="image/*" aria-label="Take or choose a photo">
+    </div>
+  </section>
+
+  <section>
+    <h2>Checks</h2>
+    <ul class="checks" id="checks"></ul>
+  </section>
+
+  <section id="result" class="card result" hidden>
+    <h2>Your passport file</h2>
+    <div id="resultBanner" class="banner"></div>
+    <img id="resultImg" alt="Cropped passport photo">
+    <div class="spec" id="resultSpec"></div>
+    <div class="row">
+      <button id="saveBtn" class="primary">Save photo</button>
+      <button id="retake">Start again</button>
+    </div>
+    <p class="note" id="saveNote">Before you apply, run it through DIA's own online photo checker on passports.govt.nz. A passport officer still makes the final call.</p>
+  </section>
+
+  <details class="card">
+    <summary>The rules this checks</summary>
+    <ul class="note">
+      <li>Taken by someone else from about 1.5 m, camera at eye level. No selfies.</li>
+      <li>Stand about 0.5 m in front of a plain, light background (pale grey or blue works better than white). No shadows behind the head.</li>
+      <li>Face straight on, not tilted or turned. Eyes open, mouth closed, neutral expression.</li>
+      <li>Even light on the face, ideally coming from behind and above the photographer. Don't stand right under a light.</li>
+      <li>Hair out of the eyes. Shoulders, upper chest and a gap around the head, hair and ears.</li>
+      <li>Prescription glasses only if not tinted or thick-framed, with no glare. No sunglasses. Hats only for religious or medical reasons.</li>
+      <li>File: colour JPG, 3:4, 900–4500 px wide by 1200–6000 px high, 250 KB to 5 MB. No edits, filters or AI changes to how you look: this app only crops and resizes.</li>
+    </ul>
+    <p class="note">Source: passports.govt.nz passport photo page and DIA's iPhone and Samsung guides, read 17 November 2026.</p>
+  </details>
+</div>
+
+<script type="module">
+const $ = id => document.getElementById(id);
+const LOADER = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm/vision_wasm_internal.js";
+let landmarker = null, mpReady = false;
+
+/* ---------- Face model ---------- */
+async function loadModel(){
+  try{
+    let mod;
+    try{ mod = await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs"); }
+    catch(e){ mod = await import("./vision_bundle.mjs"); }
+    const {FaceLandmarker} = mod;
+    const wasmBinary = new URL("wasm/vision_wasm_internal.wasm", location.href).toString();
+    const opts = d => ({baseOptions:{modelAssetPath:new URL("model_face.wasm", location.href).toString(), delegate:d},
+      runningMode:"IMAGE", numFaces:2, outputFaceBlendshapes:true});
+    let lastErr;
+    for(const loader of [LOADER, new URL("wasm/vision_wasm_internal.js", location.href).toString()]){
+      for(const d of ["GPU","CPU"]){
+        try{ landmarker = await FaceLandmarker.createFromOptions({wasmLoaderPath:loader, wasmBinaryPath:wasmBinary}, opts(d)); break; }
+        catch(e){ lastErr=e; }
+      }
+      if(landmarker) break;
+    }
+    if(!landmarker) throw lastErr;
+    mpReady = true; $("loadStatus").textContent = "Face checker ready.";
+  }catch(e){
+    console.error(e);
+    $("loadStatus").textContent = "The face checker couldn't load here, so only the file checks will run.";
+  }
+}
+loadModel();
+
+/* ---------- Analysis ---------- */
+const P = (lm,i,w,h) => ({x:lm[i].x*w, y:lm[i].y*h});
+function lumaStats(ctx, x, y, w, h){
+  x=Math.max(0,Math.round(x)); y=Math.max(0,Math.round(y));
+  w=Math.max(1,Math.min(Math.round(w), ctx.canvas.width-x)); h=Math.max(1,Math.min(Math.round(h), ctx.canvas.height-y));
+  if(w<2||h<2) return null;
+  const d = ctx.getImageData(x,y,w,h).data; let s=0,s2=0,n=0,hot=0,r=0,g=0,b=0;
+  for(let i=0;i<d.length;i+=8){ const L=0.2126*d[i]+0.7152*d[i+1]+0.0722*d[i+2]; s+=L; s2+=L*L; n++; r+=d[i]; g+=d[i+1]; b+=d[i+2]; if(L>248) hot++; }
+  const m=s/n; r/=n; g/=n; b/=n; return {mean:m, sd:Math.sqrt(Math.max(0,s2/n-m*m)), hot:hot/n, r, g, b, chroma:Math.max(r,g,b)-Math.min(r,g,b)};
+}
+// Sharpness: variance of a Laplacian over the face, resampled to 256 px wide
+const sc=document.createElement("canvas"), sctx=sc.getContext("2d",{willReadFrequently:true});
+function sharpness(src, x, y, w, h){
+  const tw=256, th=Math.max(8,Math.round(h*tw/w)); sc.width=tw; sc.height=th;
+  sctx.drawImage(src, x, y, w, h, 0, 0, tw, th);
+  const d=sctx.getImageData(0,0,tw,th).data, G=new Float32Array(tw*th);
+  for(let i=0;i<tw*th;i++) G[i]=0.299*d[i*4]+0.587*d[i*4+1]+0.114*d[i*4+2];
+  let s=0,s2=0,n=0;
+  for(let yy=1;yy<th-1;yy++) for(let xx=1;xx<tw-1;xx++){ const i=yy*tw+xx; const v=4*G[i]-G[i-1]-G[i+1]-G[i-tw]-G[i+tw]; s+=v; s2+=v*v; n++; }
+  const m=s/n; return s2/n-m*m;
+}
+// Probe canvas at reduced size for pixel statistics
+const probe = document.createElement("canvas"); const pctx = probe.getContext("2d",{willReadFrequently:true});
+
+function analyse(src, W, H, res, live, exif){
+  const checks = [];
+  const add = (id,label,state,msg,say) => checks.push({id,label,state,msg,say});
+  const faces = res?.faceLandmarks || [];
+  if(faces.length===0){ add("face","Face found","bad","No face found","I can't see a face. Point the camera at the person."); return {checks}; }
+  if(faces.length>1){ add("face","One person only","bad","More than one face in view","Only one person should be in the photo."); return {checks}; }
+  const lm = faces[0];
+  const bs = {}; (res.faceBlendshapes?.[0]?.categories||[]).forEach(c=>bs[c.categoryName]=c.score);
+  add("face","Face found","ok","One face","");
+
+  // geometry
+  let L=P(lm,234,W,H), R=P(lm,454,W,H); if(L.x>R.x) [L,R]=[R,L];
+  const nose=P(lm,1,W,H), chin=P(lm,152,W,H), fore=P(lm,10,W,H);
+  let eA=P(lm,33,W,H), eB=P(lm,263,W,H); if(eA.x>eB.x) [eA,eB]=[eB,eA];
+  const eyeMid={x:(eA.x+eB.x)/2,y:(eA.y+eB.y)/2};
+  const faceW=R.x-L.x;
+  const ipd=Math.hypot(P(lm,468,W,H).x-P(lm,473,W,H).x, P(lm,468,W,H).y-P(lm,473,W,H).y);
+
+  // distance (live camera only; assumes ~75° diagonal field of view)
+  if(live){
+    const f=(Math.hypot(W,H)/2)/Math.tan(37.5*Math.PI/180)*zoomFactor;
+    const dist=f*0.063/ipd;
+    const txt=`About ${dist.toFixed(1)} m`;
+    if(dist<1.1) add("dist","Distance 1.5 m","bad",txt+" (too close)","Photographer, step back a little. Aim for about one and a half metres.");
+    else if(dist>2.1) add("dist","Distance 1.5 m","bad",txt+" (too far)","Photographer, come a little closer.");
+    else add("dist","Distance 1.5 m","ok",txt,"");
+  }
+
+  if(!live){
+    // f35: focal length as on a 35 mm camera (43.27 mm diagonal). Only valid if the photo is uncropped.
+    const uncropped = exif && (!exif.w || Math.abs((exif.w/exif.h)-(W/H))<0.02) && (!exif.w || Math.max(exif.w,exif.h)<=Math.max(W,H)*1.05);
+    if(exif?.f35 && uncropped){
+      const fpx=exif.f35/43.27*Math.hypot(W,H), dist=fpx*0.063/ipd, txt=`About ${dist.toFixed(1)} m (from lens data)`;
+      if(dist<1.2) add("dist","Taken from about 1.5 m","bad",txt+": too close, the face will look distorted","Too close. Take it again from about one and a half metres, then crop.");
+      else if(dist<1.35) add("dist","Taken from about 1.5 m","warn",txt+": a little close","");
+      else if(dist>2.6) add("dist","Taken from about 1.5 m","warn",txt+": far, check detail","");
+      else add("dist","Taken from about 1.5 m","ok",txt,"");
+    } else {
+      // No lens data (cropped or stripped). A face filling most of the frame usually means it was taken too close.
+      const faceFrac=(chin.y-fore.y)/H;
+      if(faceFrac>0.42) add("dist","Taken from about 1.5 m","bad","Face fills the frame: probably taken too close","Too close. Take it again from about one and a half metres, then crop.");
+      else add("dist","Taken from about 1.5 m","warn","Can't measure: this photo has no lens data. Make sure it was taken from 1.5 m, not cropped from a close-up.","");
+    }
+  }
+
+  // pose
+  const yaw=(nose.x-L.x)/faceW;
+  const roll=Math.atan2(eB.y-eA.y, eB.x-eA.x)*180/Math.PI;
+  const pitch=(nose.y-eyeMid.y)/(chin.y-eyeMid.y);
+  if(yaw>0.555) add("turn","Facing straight","bad","Head turned","Turn your head slightly to your right.");
+  else if(yaw<0.445) add("turn","Facing straight","bad","Head turned","Turn your head slightly to your left.");
+  else add("turn","Facing straight","ok","Straight on","");
+  if(roll>3) add("tilt","Head level","bad","Head tilted","Keep your head level. Tilt it slightly to your right.");
+  else if(roll<-3) add("tilt","Head level","bad","Head tilted","Keep your head level. Tilt it slightly to your left.");
+  else add("tilt","Head level","ok","Level","");
+  if(pitch<0.27) add("chin","Chin level","bad","Chin raised, or camera too low","Lower your chin slightly. Hold the phone at eye level.");
+  else if(pitch>0.55) add("chin","Chin level","bad","Chin down, or camera too high","Raise your chin slightly. Hold the phone at eye level.");
+  else add("chin","Chin level","ok","Level","");
+
+  // expression
+  const blink=Math.max(bs.eyeBlinkLeft||0, bs.eyeBlinkRight||0), jaw=bs.jawOpen||0, smile=Math.max(bs.mouthSmileLeft||0,bs.mouthSmileRight||0);
+  if(blink>0.5) add("eyes","Eyes open","bad","Eyes look closed","Keep your eyes open.");
+  else add("eyes","Eyes open","ok","Open","");
+  if(jaw>0.12) add("mouth","Mouth closed","bad","Mouth open","Close your mouth.");
+  else if(smile>0.35) add("mouth","Neutral face","bad","Smiling","No smile please. Relax your face.");
+  else add("mouth","Neutral face","ok","Neutral","");
+
+  // pixels
+  const pw=Math.min(480,W), ph=Math.round(H*pw/W), k=pw/W;
+  probe.width=pw; probe.height=ph; pctx.drawImage(src,0,0,pw,ph);
+  const fx=L.x*k, fw=faceW*k, top=fore.y*k, bot=chin.y*k;
+  const faceBox=lumaStats(pctx, fx+fw*0.2, top, fw*0.6, bot-top);
+  const lc=lumaStats(pctx, fx+fw*0.12, eyeMid.y*k+(bot-eyeMid.y*k)*0.15, fw*0.22, (bot-eyeMid.y*k)*0.35);
+  const rc=lumaStats(pctx, fx+fw*0.66, eyeMid.y*k+(bot-eyeMid.y*k)*0.15, fw*0.22, (bot-eyeMid.y*k)*0.35);
+  if(faceBox){
+    if(faceBox.mean<75) add("light","Face well lit","bad","Too dark","It's too dark. Face a window or a bright light behind the photographer.");
+    else if(faceBox.mean>225||faceBox.hot>0.04) add("light","Face well lit","bad","Too bright or glare","Too much glare. Move away from the light, or turn off the flash.");
+    else if(lc&&rc&&Math.max(lc.mean,rc.mean)/Math.max(1,Math.min(lc.mean,rc.mean))>1.3) add("light","Face well lit","bad","One side of the face is darker","One side of your face is in shadow. Turn so the light falls evenly on your face.");
+    else add("light","Face well lit","ok","Even","");
+    if(faceBox.chroma<6) add("colour","Colour photo","bad","Looks black and white","The photo must be in colour.");
+    else add("colour","Colour photo","ok","Colour","");
+  }
+  {
+    const sh=sharpness(src, L.x, fore.y, faceW, chin.y-fore.y);
+    if(sh<35) add("sharp","Sharp, not blurry","bad",`Blurry (score ${sh.toFixed(0)})`,"The photo is blurry. Hold the phone still, and make sure the face is in focus.");
+    else if(sh<70) add("sharp","Sharp, not blurry","warn",`A bit soft (score ${sh.toFixed(0)})`,"");
+    else add("sharp","Sharp, not blurry","ok",`Sharp (score ${sh.toFixed(0)})`,"");
+  }
+  // background: strips left and right of the head, from top of frame to eye level
+  // hair reaches roughly 0.4 face-widths past the face edge; "near" sits just outside it, "far" further out
+  const sy=Math.max(0,top-(bot-top)*0.6), sh=eyeMid.y*k-sy, nw=fw*0.18, ng=fw*0.45, fg=fw*0.75, fwid=fw*0.4;
+  const near=[lumaStats(pctx, fx-ng-nw, sy, nw, sh), lumaStats(pctx, fx+fw+ng, sy, nw, sh)];
+  const far=[lumaStats(pctx, fx-fg-fwid, sy, fwid, sh), lumaStats(pctx, fx+fw+fg, sy, fwid, sh)];
+  const bg=far.filter(Boolean);
+  if(bg.length){
+    const m=bg.reduce((a,b)=>a+b.mean,0)/bg.length, sd=bg.reduce((a,b)=>a+b.sd,0)/bg.length;
+    if(m<130) add("bg","Plain light background","bad","Background too dark","Use a plain, light-coloured wall behind you.");
+    else if(sd>30) add("bg","Plain light background","bad","Background not plain","The background needs to be plain, with nothing behind your head.");
+    else if(bg.some(x=>x.chroma>55)) add("bg","Plain light background","bad","Background too colourful","Use a pale grey, pale blue or white wall.");
+    else add("bg","Plain light background","ok","Plain and light","");
+    if(faceBox && Math.abs(m-faceBox.mean)<20) add("contrast","Face stands out from wall","bad","Wall is too close in shade to the face","Use a lighter wall so your face stands out clearly.");
+    else add("contrast","Face stands out from wall","ok","Good contrast","");
+    const shadow=[0,1].some(i=>near[i]&&far[i]&&far[i].mean-near[i].mean>9);
+    if(shadow) add("wall","No shadow behind head","bad","Shadow on the wall","There's a shadow behind you. Step about half a metre away from the wall.");
+    else add("wall","No shadow behind head","ok","None seen. The app can't measure the gap to the wall, so check it's about one big step (0.5 m).","");
+  } else add("bg","Plain light background","warn","Can't see enough background","Step back so there's more wall around your head.");
+
+  // crop: head (chin to crown) about 52% of photo height, shoulders and upper chest included
+  const headTop=fore.y-(chin.y-fore.y)*0.32, headH=chin.y-headTop;
+  const cropH=headH/0.52, cropW=cropH*0.75, cx=(L.x+R.x)/2;
+  const crop={x:cx-cropW/2, y:headTop-cropH*0.11, w:cropW, h:cropH};
+  const inside=crop.x>=0&&crop.y>=0&&crop.x+crop.w<=W&&crop.y+crop.h<=H;
+  if(!inside) add("frame","Shoulders and space around head","bad","Too tight in the frame","Step back so your shoulders and the space around your head are in the picture.");
+  else add("frame","Shoulders and space around head","ok","Fits","");
+  const res900 = crop.h>=1200 ? "ok" : (crop.h>=800 ? "warn" : "bad");
+  add("res","Enough detail (1200 px tall)", res900, `${Math.round(crop.w)} × ${Math.round(crop.h)} px before resizing`,
+    res900==="bad" ? (live ? "Not enough detail. Use Check a photo with the phone's normal camera instead." : "This photo doesn't have enough detail. Take it with the phone's main camera at full size, or use 2x zoom.") : "");
+  return {checks, crop};
+}
+
+/* ---------- Detection with zoom-in retry (the face model misses small, far-away faces) ---------- */
+const zc=document.createElement("canvas"), zctx=zc.getContext("2d");
+function detectSmart(src, W, H){
+  let res=landmarker.detect(src);
+  if(res.faceLandmarks?.length) return res;
+  for(const z of [0.55,0.38]){
+    const cw=W*z, ch=Math.min(H, cw*1.25), cx=(W-cw)/2, cy=Math.max(0, H*0.42-ch/2);
+    const scale=Math.min(1, 960/cw); zc.width=Math.round(cw*scale); zc.height=Math.round(ch*scale);
+    zctx.drawImage(src, cx, cy, cw, ch, 0, 0, zc.width, zc.height);
+    const r=landmarker.detect(zc);
+    if(r.faceLandmarks?.length){
+      r.faceLandmarks=r.faceLandmarks.map(f=>f.map(pt=>({x:(cx+pt.x*cw)/W, y:(cy+pt.y*ch)/H, z:pt.z})));
+      return r;
+    }
+  }
+  return res;
+}
+
+/* ---------- UI: checks list ---------- */
+const ORDER=["face","dist","gapwall","turn","tilt","chin","eyes","mouth","sharp","light","colour","bg","contrast","wall","frame","res"];
+function renderChecks(checks){
+  const ul=$("checks"); ul.textContent="";
+  checks.sort((a,b)=>ORDER.indexOf(a.id)-ORDER.indexOf(b.id)).forEach(c=>{
+    const li=document.createElement("li"); li.className=c.state;
+    const dot=document.createElement("span"); dot.className="dot";
+    const box=document.createElement("div"); box.style.minWidth="0";
+    const t=document.createElement("div"); t.className="t"; t.textContent=c.label;
+    const m=document.createElement("div"); m.className="m"; m.textContent=c.msg;
+    box.append(t,m); li.append(dot,box); ul.append(li);
+  });
+}
+function blocking(checks){ return checks.filter(c=>c.state==="bad"); }
+
+/* ---------- Speech ---------- */
+let lastSaid="", lastSaidAt=0;
+function speak(text, force){
+  if(!$("voiceOn").checked||!text||!("speechSynthesis" in window)) return;
+  const now=performance.now();
+  if(!force && text===lastSaid && now-lastSaidAt<4500) return;
+  if(!force && now-lastSaidAt<2200) return;
+  try{ speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(text); u.lang="en-NZ"; u.rate=1; speechSynthesis.speak(u); }catch(e){}
+  lastSaid=text; lastSaidAt=now;
+}
+
+/* ---------- Output file ---------- */
+let outBlob=null;
+async function makeFile(src, W, H, crop){
+  let outH=Math.round(crop.h), outW=Math.round(crop.w);
+  if(outH<1200){ outH=1200; outW=900; }
+  if(outH>6000){ outH=6000; outW=4500; }
+  const c=document.createElement("canvas"); c.width=outW; c.height=outH;
+  const x=c.getContext("2d"); x.imageSmoothingQuality="high";
+  x.drawImage(src, crop.x, crop.y, crop.w, crop.h, 0, 0, outW, outH);
+  let q=0.92, blob=await new Promise(r=>c.toBlob(r,"image/jpeg",q));
+  if(blob.size<250*1024){ blob=await new Promise(r=>c.toBlob(r,"image/jpeg",0.99)); }
+  while(blob.size>5*1024*1024 && q>0.5){ q-=0.08; blob=await new Promise(r=>c.toBlob(r,"image/jpeg",q)); }
+  return {blob, outW, outH, upscaled: crop.h<1200};
+}
+async function showResult(src, W, H, analysis){
+  const bad=blocking(analysis.checks);
+  $("result").hidden=false;
+  const b=$("resultBanner");
+  if(!analysis.crop || bad.some(c=>c.id==="frame"||c.id==="face")){
+    b.className="banner bad"; b.textContent="This photo can't be cropped to the passport layout. Fix the red checks and try again.";
+    $("resultImg").hidden=true; $("saveBtn").disabled=true; $("resultSpec").textContent=""; outBlob=null; return;
+  }
+  const f=await makeFile(src,W,H,analysis.crop); outBlob=f.blob;
+  $("resultImg").hidden=false; $("resultImg").src=URL.createObjectURL(f.blob); $("saveBtn").disabled=false;
+  $("resultSpec").textContent=`JPG · ${f.outW} × ${f.outH} px · 3:4 · ${(f.blob.size/1024).toFixed(0)} KB`;
+  if(bad.length){ b.className="banner bad"; b.textContent=`${bad.length} check${bad.length>1?"s":""} failed: ${bad.map(c=>c.label.toLowerCase()).join(", ")}. DIA may reject this photo.`; }
+  else if(f.upscaled){ b.className="banner warn"; b.textContent="All checks passed, but the photo was enlarged to reach 1200 px tall, so it may look soft. A sharper original is safer."; }
+  else { b.className="banner ok"; b.textContent="All checks passed. This file matches DIA's technical rules."; }
+}
+$("saveBtn").onclick=async()=>{
+  if(!outBlob) return;
+  const name=`passport-photo-${new Date().toISOString().slice(0,10)}.jpg`;
+  if(!window.claude){
+    const a=document.createElement("a"); a.href=URL.createObjectURL(outBlob); a.download=name; document.body.append(a); a.click(); a.remove();
+    $("saveNote").textContent="Saved to your downloads. On iPhone you can also press and hold the photo and choose Save to Photos.";
+    return;
+  }
+  try{
+    const dl=await claude.use("downloads");
+    if(!dl) throw {code:"unavailable"};
+    await dl.save({filename:name, data:outBlob});
+    $("saveNote").textContent="Saved. Before you apply, run it through DIA's own online photo checker on passports.govt.nz.";
+  }catch(e){
+    if(e?.code==="declined") return;
+    $("saveNote").textContent="Saving isn't available in this view. Press and hold the photo above to save it to your phone.";
+  }
+};
+$("retake").onclick=()=>{ $("result").hidden=true; outBlob=null; if(stream){ running=true; phase="check"; } };
+
+/* ---------- EXIF: lens focal length (35 mm equivalent) and original size ---------- */
+function readExif(buf){
+  const v=new DataView(buf); if(v.getUint16(0)!==0xFFD8) return null;
+  let o=2;
+  while(o+4<v.byteLength){
+    const m=v.getUint16(o), len=v.getUint16(o+2);
+    if(m===0xFFE1 && v.getUint32(o+4)===0x45786966){
+      const t=o+10, le=v.getUint16(t)===0x4949, u16=a=>v.getUint16(a,le), u32=a=>v.getUint32(a,le);
+      const out={};
+      const ifd=(start,cb)=>{ const n=u16(start); for(let i=0;i<n;i++){ const e=start+2+i*12; cb(u16(e),u16(e+2),e+8); } };
+      let exifPtr=0;
+      ifd(t+u32(t+4),(tag,type,val)=>{ if(tag===0x8769) exifPtr=u32(val); });
+      if(exifPtr) ifd(t+exifPtr,(tag,type,val)=>{
+        if(tag===0xA405) out.f35=u16(val);
+        if(tag===0x920A){ const p=t+u32(val); out.fmm=u32(p)/u32(p+4); }
+        if(tag===0xA002) out.w=type===3?u16(val):u32(val);
+        if(tag===0xA003) out.h=type===3?u16(val):u32(val);
+      });
+      return out;
+    }
+    if((m&0xFF00)!==0xFF00) break; o+=2+len;
+  }
+  return null;
+}
+
+/* ---------- Photo mode ---------- */
+$("file").onchange=async e=>{
+  const file=e.target.files?.[0]; if(!file) return;
+  let exif=null; try{ exif=readExif(await file.arrayBuffer()); }catch(err){}
+  const img=new Image(); img.src=URL.createObjectURL(file); await img.decode();
+  const W=img.naturalWidth, H=img.naturalHeight;
+  if(!mpReady){ renderChecks([{id:"face",label:"Face checker",state:"warn",msg:"Not loaded, so face checks were skipped"}]); return; }
+  const res=detectSmart(img,W,H);
+  const a=analyse(img,W,H,res,false,exif);
+  renderChecks(a.checks);
+  await showResult(img,W,H,a);
+  $("result").scrollIntoView({behavior:"smooth",block:"start"});
+};
+
+/* ---------- Live mode ---------- */
+// Phases: "wall" (subject touches the wall, we measure face size) -> "step" (one big step forward, we measure the gap) -> "check" (all other checks, auto-capture)
+let stream=null, track=null, facing="environment", running=false, greenSince=0, lastRun=0, zoomFactor=1;
+let phase="wall", wallSamples=[], ipdWall=0, distWall=0, gapM=null, stepStableSince=0, lastLiveChecks=[];
+const video=$("video"), ov=$("overlay"), octx=ov.getContext("2d");
+function focalPx(W,H){ return (Math.hypot(W,H)/2)/Math.tan(37.5*Math.PI/180)*zoomFactor; }
+function ipdOf(lm,W,H){ return Math.hypot((lm[468].x-lm[473].x)*W,(lm[468].y-lm[473].y)*H); }
+async function startCam(){
+  $("camBanner").hidden=true;
+  try{
+    if(stream) stream.getTracks().forEach(t=>t.stop());
+    stream=await navigator.mediaDevices.getUserMedia({audio:false, video:{facingMode:facing, width:{ideal:3840}, height:{ideal:2160}}});
+    track=stream.getVideoTracks()[0]; zoomFactor=1;
+    try{ const cap=track.getCapabilities?.(); if(cap?.zoom){ const z=Math.min(2,cap.zoom.max); if(z>1){ await track.applyConstraints({advanced:[{zoom:z}]}); zoomFactor=z; } } }catch(e){ zoomFactor=1; }
+    video.srcObject=stream; await video.play();
+    $("stage").hidden=false; $("flipCam").disabled=false; $("snapNow").disabled=false; running=true;
+    phase="wall"; wallSamples=[]; gapM=null; stepStableSince=0;
+    if(facing==="user"){ $("camBanner").hidden=false; $("camBanner").className="banner warn"; $("camBanner").textContent="Front camera: fine for practice, but DIA rejects selfies. Have someone else take the real one."; }
+    say("Stand with your back against the wall. Photographer, stand about two metres away and stay there.", "bad", true);
+    requestAnimationFrame(loop);
+  }catch(e){
+    $("camBanner").hidden=false; $("camBanner").className="banner bad";
+    $("camBanner").textContent="The live camera isn't allowed here. Open this page in Safari or Chrome, or use Check a photo instead.";
+  }
+}
+function say(text, cls, force){ const el=$("say"); el.className="say "+cls; el.textContent=text; speak(text, force); }
+$("startCam").onclick=()=>{ speak(" ", true); startCam(); };
+$("flipCam").onclick=()=>{ facing=facing==="environment"?"user":"environment"; startCam(); };
+$("snapNow").onclick=()=>capture();
+
+function drawGuide(a, W, H){
+  const cw=ov.clientWidth, ch=ov.clientHeight; ov.width=cw; ov.height=ch;
+  const s=Math.max(cw/W, ch/H), ox=(cw-W*s)/2, oy=(ch-H*s)/2;
+  const mirror=facing==="user";
+  octx.save(); if(mirror){ octx.translate(cw,0); octx.scale(-1,1); }
+  octx.clearRect(0,0,cw,ch);
+  if(a?.crop){
+    const ok=blocking(a.checks).length===0;
+    octx.strokeStyle= ok ? "#36d07a" : "#ffb020"; octx.lineWidth=3; octx.setLineDash(ok?[]:[10,8]);
+    octx.strokeRect(ox+a.crop.x*s, oy+a.crop.y*s, a.crop.w*s, a.crop.h*s);
+  }
+  octx.restore();
+  video.style.transform = mirror ? "scaleX(-1)" : "none";
+}
+function gapCheck(){
+  if(gapM==null) return null;
+  return {id:"gapwall",label:"Half a metre from the wall",state:"ok",msg:`Measured about ${gapM.toFixed(1)} m`,say:""};
+}
+function loop(t){
+  if(!stream) return;
+  requestAnimationFrame(loop);
+  if(!running || !mpReady || video.readyState<2 || t-lastRun<120) return;
+  lastRun=t;
+  const W=video.videoWidth, H=video.videoHeight;
+  const res=detectSmart(video,W,H);
+  const lm=res.faceLandmarks?.length===1 ? res.faceLandmarks[0] : null;
+
+  if(phase==="wall"){
+    drawGuide(null,W,H);
+    if(!lm){ wallSamples=[]; say("Stand with your back against the wall, facing the camera.", "bad"); return; }
+    wallSamples.push(ipdOf(lm,W,H));
+    if(wallSamples.length<10){ say("Stay against the wall… measuring.", "bad"); return; }
+    const sorted=[...wallSamples].sort((a,b)=>a-b); ipdWall=sorted[Math.floor(sorted.length/2)];
+    distWall=focalPx(W,H)*0.063/ipdWall;
+    phase="step"; stepStableSince=0;
+    say("Now take one big step forward. Photographer, don't move.", "bad", true);
+    return;
+  }
+  if(phase==="step"){
+    drawGuide(null,W,H);
+    if(!lm){ say("I can't see your face. Face the camera.", "bad"); return; }
+    const gap=distWall*(1-ipdWall/ipdOf(lm,W,H));
+    renderChecks([{id:"gapwall",label:"Half a metre from the wall",state:(gap>=0.35&&gap<=0.9)?"ok":"bad",msg:`About ${Math.max(0,gap).toFixed(1)} m`}]);
+    if(gap<0.35){ stepStableSince=0; say(gap<0.15?"Take one big step forward from the wall.":"Take another small step forward.", "bad"); return; }
+    if(gap>0.9){ stepStableSince=0; say("Too far from the wall. Step back a little.", "bad"); return; }
+    if(!stepStableSince){ stepStableSince=t; return; }
+    if(t-stepStableSince>800){ gapM=gap; phase="check"; say("Good. Now look straight at the camera.", "ok", true); }
+    return;
+  }
+  const a=analyse(video,W,H,res,true);
+  const g=gapCheck(); if(g) a.checks.push(g);
+  lastLiveChecks=a.checks;
+  renderChecks(a.checks); drawGuide(a,W,H);
+  const bad=blocking(a.checks).filter(c=>c.id!=="res");
+  if(bad.length){ greenSince=0; say(bad[0].say, "bad"); }
+  else {
+    if(!greenSince){ greenSince=t; say("Perfect. Hold still.", "ok", true); }
+    else if(t-greenSince>1500){ capture(a); }
+  }
+}
+async function capture(a){
+  const W=video.videoWidth, H=video.videoHeight; if(!W) return;
+  running=false; greenSince=0;
+  speak("Photo taken.", true);
+  // Full-resolution still where the browser supports it (Chrome on Android); otherwise the video frame
+  let src=null, SW=W, SH=H;
+  try{
+    if("ImageCapture" in window && track){
+      const blob=await new ImageCapture(track).takePhoto();
+      const img=new Image(); img.src=URL.createObjectURL(blob); await img.decode();
+      src=img; SW=img.naturalWidth; SH=img.naturalHeight;
+    }
+  }catch(e){ src=null; }
+  if(!src){ const c=document.createElement("canvas"); c.width=W; c.height=H; c.getContext("2d").drawImage(video,0,0,W,H); src=c; }
+  let res2=mpReady?detectSmart(src,SW,SH):null;
+  let a2=res2?analyse(src,SW,SH,res2,false,null):(a||{checks:[]});
+  // distance and wall gap were measured live; carry those results over
+  a2.checks=a2.checks.filter(c=>c.id!=="dist");
+  for(const c of lastLiveChecks) if(c.id==="dist"||c.id==="gapwall") a2.checks.push(c);
+  renderChecks(a2.checks);
+  await showResult(src,SW,SH,a2);
+  $("result").scrollIntoView({behavior:"smooth",block:"start"});
+}
+
+/* ---------- Tabs ---------- */
+function mode(m){
+  $("tabLive").setAttribute("aria-pressed", m==="live"); $("tabPhoto").setAttribute("aria-pressed", m==="photo");
+  $("live").hidden = m!=="live"; $("photo").hidden = m!=="photo";
+  if(m!=="live" && stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; running=false; $("stage").hidden=true; }
+}
+$("tabLive").onclick=()=>mode("live"); $("tabPhoto").onclick=()=>mode("photo");
+
+renderChecks([
+  {id:"face",label:"Face found",state:"warn",msg:"Waiting for a photo"},
+  {id:"turn",label:"Facing straight",state:"warn",msg:"—"},
+  {id:"light",label:"Face well lit",state:"warn",msg:"—"},
+  {id:"bg",label:"Plain light background",state:"warn",msg:"—"},
+  {id:"wall",label:"No shadow behind head",state:"warn",msg:"—"},
+  {id:"res",label:"Enough detail (1200 px tall)",state:"warn",msg:"—"}
+]);
+</script>
+
+</body>
+</html>
